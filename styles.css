@@ -53,3 +53,7 @@ hr {
 	background: #1a1a1a;
 	pointer-events: none;
 }
+
+#pwrBtnOn, #pwrBtnOff {
+	margin-bottom: 5px;
+}

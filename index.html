@@ -19,9 +19,15 @@
 			<button id="searchBtn" onclick="searchBLEDom()">Connect</button>
 			<div id="controls" style="display: none;">
 				<h2>Default Controls</h2>
+				<button id="pwrBtnOn" onclick="sendPower(true)">Power On</button>
+				<button id="pwrBtnOff" onclick="sendPower(false)">Power Off</button>
+				<br>
+				
 				<button id="redBtn" onclick="setColor(255, 0, 0)">Red</button>
 				<button id="greenBtn" onclick="setColor(0, 255, 0)">Green</button>
 				<button id="blueBtn" onclick="setColor(0, 0, 255)">Blue</button>
+				<button id="whiteBtn" onclick="setModeEffect('white')">White</button>
+				<button id="magentaBtn" onclick="setModeEffect('magenta')">Magenta</button>
 				<hr />
 				<input type="color" id="customColorInput" name="customColorInput" value="#FF0000" onchange="setColorHex(this.value)" />
 				<hr />
