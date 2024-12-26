@@ -4,11 +4,36 @@ if ("bluetooth" in navigator && "permissions" in navigator) {
     document.getElementById("nosupport").style.display = "block";
 }
 
-var brightness = [0, 0, 0];
-var darkness = [0, 0, 0];
-var rgbColor = { r: 255, g: 0, b: 0 };
+let brightness = [0, 0, 0];
+let darkness = [0, 0, 0];
+let rgbColor = null;
+let colorMode = null;
 
-function onDisconnected(event) {
+if (localStorage.getItem("brightness")) {
+    brightness = localStorage.getItem("brightness");
+    document.getElementById("brightness").value = Number(brightness);
+}
+
+if (localStorage.getItem("colors") !== null) {
+    let colors = localStorage.getItem("colors");
+    if (JSON.parse(colors).length == 3) {
+        rgbColor = JSON.parse(colors);
+    } else if (Number.isInteger(Number(colors))) {
+        colorMode = Number("0x" + (Number(colors).toString(16).toUpperCase()));
+    } else {
+        rgbColor = { r: 0, g: 255, b: 0 };
+    }
+} else {
+    rgbColor = { r: 255, g: 0, b: 0 };
+}
+
+if (localStorage.getItem("darkness")) {
+    darkness = localStorage.getItem("darkness");
+}
+
+let bluetoothDevice = null;
+
+async function onDisconnected(event) {
     const device = event.target;
     console.log(`Device ${device.name} is disconnected.`);
     location.reload();
@@ -20,19 +45,13 @@ function searchBLEDom() {
         filters: [
             { services: ["0000fff0-0000-1000-8000-00805f9b34fb"] },
         ],
-    }).then(function (device) {
+    }).then(async function (device) {
         console.log(device);
         device.addEventListener("gattserverdisconnected", onDisconnected);
-        return device.gatt.connect();
-    }).then(function (server) {
-        console.log(server);
-        return server.getPrimaryService("0000fff0-0000-1000-8000-00805f9b34fb");
-    }).then(function (service) {
-        console.log(service);
-        return service.getCharacteristic(
-            "0000fff3-0000-1000-8000-00805f9b34fb",
-        );
-    }).then(function (characteristic) {
+        //return device.gatt.connect();
+
+        const characteristic = await connect(device);
+
         console.log(characteristic);
         char = characteristic;
         document.getElementById("searchBtn").style.display = "none";
@@ -41,10 +60,76 @@ function searchBLEDom() {
         if (navigator.requestMIDIAccess) {
             document.getElementById("midiBtn").style.display = "inline-block";
         }
-        setColor(rgbColor.r, rgbColor.g, rgbColor.b);
+
+        console.log(rgbColor, colorMode);
+        if (rgbColor) {
+            setColor(rgbColor.r, rgbColor.g, rgbColor.b);
+        } else if (colorMode) {
+            setModeEffect(colorMode);
+        }
     }).catch(function (err) {
         console.error(err);
     });
+}
+
+async function connect(device) {
+    console.log("connecting...");
+
+    let server = await device.gatt.connect();
+    console.log("Connected!");
+    //bluetoothDevice = server;
+
+    /*if (!bluetoothDevice) {
+     	server = await device.gatt.connect();
+        console.log("Connected!");
+        bluetoothDevice = server;
+    } else {
+        server = bluetoothDevice;
+        server.connect();
+        console.log("using saved bluetooth device!");
+    }*/
+
+    const service = await server.getPrimaryService(
+        "0000fff0-0000-1000-8000-00805f9b34fb",
+    );
+
+    const characteristic = await service.getCharacteristic(
+        "0000fff3-0000-1000-8000-00805f9b34fb",
+    );
+
+    return characteristic;
+    /*return await exponentialBackoff(
+        3, /* max retries * /
+        2, /* seconds delay * /
+        async function toTry() {
+            console.log("Connecting to Bluetooth Device... ");
+            const device = await bluetoothDevice.gatt.connect();
+            return device;
+        },
+        function success() {
+            console.log(
+                "> Bluetooth Device connected. Try disconnect it now.",
+            );
+        },
+        function fail() {
+            console.log("Failed to reconnect.");
+        },
+    );*/
+}
+
+async function exponentialBackoff(max, delay, toTry, success, fail) {
+    await toTry().then((result) => success(result))
+        .catch((_) => {
+            if (max === 0) {
+                return fail();
+            }
+            console.log(
+                "Retrying in " + delay + "s... (" + max + " tries left)",
+            );
+            setTimeout(function () {
+                exponentialBackoff(--max, delay * 2, toTry, success, fail);
+            }, delay * 1000);
+        });
 }
 
 commandInProgress = false;
@@ -69,6 +154,8 @@ function setColor(r, g, b, onSuccess) {
     document.getElementById("customColorInput").value = rgbToHex(r, g, b);
     document.getElementById("modeSelect").value = "null";
     document.getElementById("dynamicSelect").value = "null";
+
+    localStorage.setItem("colors", JSON.stringify([r, g, b]));
     var command = new Uint8Array([
         0x7e,
         0x00,
@@ -93,6 +180,8 @@ function setColorHex(hexColor, onSuccess) {
 }
 
 function setBrightness(brightness, onSuccess) {
+    console.log("brightness", brightness);
+    localStorage.setItem("brightness", brightness);
     var command = new Uint8Array([
         0x7e,
         0x00,
@@ -192,7 +281,13 @@ function setModeEffect(effect) {
         blink_m: 0x9b,
         blink_w: 0x9c,
     };
+
+    if (Object.values(effects).includes(effect)) {
+        effect = Object.keys(effects).find((key) => effects[key] === effect);
+    }
+
     if (effect in effects) {
+        localStorage.setItem("colors", limitHex(effects[effect]));
         var command = new Uint8Array([
             0x7e,
             0x00,
@@ -206,7 +301,7 @@ function setModeEffect(effect) {
         ]).buffer;
         sendCommand(command);
     } else {
-        throw new Exception(effect + " is not a valid effect");
+        throw new Error(effect + " is not a valid effect");
     }
     document.getElementById("dynamicSelect").value = "null";
 }
