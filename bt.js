@@ -11,6 +11,7 @@ var rgbColor = { r: 255, g: 0, b: 0 };
 function onDisconnected(event) {
     const device = event.target;
     console.log(`Device ${device.name} is disconnected.`);
+    location.reload();
 }
 
 var char = null;
@@ -50,7 +51,7 @@ commandInProgress = false;
 function sendCommand(command, onSuccess) {
     if (!commandInProgress) {
         commandInProgress = true;
-        console.log("char", char)
+        console.log("char", char);
         char.writeValue(command).then(function () {
             console.log("Command written to characteristic");
             commandInProgress = false;
@@ -125,7 +126,15 @@ function sendPower(on = false) {
     if (on) {
         //power on
         let command = new Uint8Array([
-            0x7e, 0x00, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef
+            0x7e,
+            0x00,
+            0x04,
+            0xf0,
+            0x00,
+            0x01,
+            0xff,
+            0x00,
+            0xef,
         ]).buffer;
 
         sendCommand(command, () => {
@@ -134,7 +143,15 @@ function sendPower(on = false) {
     } else {
         //power off
         let command = new Uint8Array([
-            0x7e, 0x00, 0x04, 0x00, 0x00, 0x00, 0xff, 0x00, 0xef
+            0x7e,
+            0x00,
+            0x04,
+            0x00,
+            0x00,
+            0x00,
+            0xff,
+            0x00,
+            0xef,
         ]).buffer;
 
         sendCommand(command, () => {
